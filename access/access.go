@@ -78,7 +78,7 @@ func New(o *Options) tiny.HandlerFunc {
 	switch o.Format {
 	case "text", "csv", "json":
 	default:
-		panic("unsupported format")
+		panic("unsupported access format")
 	}
 	var cookies []string
 	var reqHeaders, resHeaders map[string]string
@@ -100,12 +100,8 @@ func New(o *Options) tiny.HandlerFunc {
 		}
 	}
 	return func(ctx *tiny.Context) {
-		a := &Access{o: o, m: make(map[string]interface{}, len(o.Fields))}
-		ctx.SetValue(keyAccess, a)
-		if o.Before == nil && o.After == nil {
-			return
-		}
 		t := time.Now()
+		a := &Access{o: o, m: make(map[string]interface{}, len(o.Fields))}
 		a.Set("count", o.add(1))
 		a.Set("time", t.Format(o.Layout))
 		a.Set("addr", ctx.RemoteIP().String())
@@ -121,16 +117,11 @@ func New(o *Options) tiny.HandlerFunc {
 			}
 		}
 		a.setHeaders(ctx.Request.Header, reqHeaders)
+		ctx.SetValue(keyAccess, a)
 		if o.Before != nil {
 			a.writeTo(o.Before)
 		}
-		if o.After == nil {
-			return
-		}
 		defer func() {
-			if a.Off {
-				return
-			}
 			err := recover()
 			a.Set("panic", err != nil)
 			a.Set("status", ctx.Status())
@@ -138,7 +129,7 @@ func New(o *Options) tiny.HandlerFunc {
 			a.Set("duration", time.Since(t))
 			a.setHeaders(ctx.Header(), resHeaders)
 			a.Set("count", o.add(-1))
-			if o.After != nil {
+			if !a.Off && o.After != nil {
 				a.writeTo(o.After)
 			}
 			if err != nil {
@@ -179,22 +170,22 @@ func (a *Access) writeTo(w io.Writer) {
 	var err error
 	switch a.o.Format {
 	case "text":
-		_, err = w.Write(a.text())
+		_, err = w.Write(a.Text())
 	case "csv":
 		c := csv.NewWriter(w)
 		c.Comma = a.o.Comma
 		c.UseCRLF = a.o.UseCRLF
-		if err = c.Write(a.csv()); err == nil {
+		if err = c.Write(a.CSV()); err == nil {
 			c.Flush()
 			err = c.Error()
 		}
 	case "json":
-		_, err = w.Write(a.json())
+		_, err = w.Write(a.JSON())
 	}
 	log.ErrError(err)
 }
 
-func (a *Access) text() []byte {
+func (a *Access) Text() []byte {
 	var b bytes.Buffer
 	for i, s := range a.o.Fields {
 		if i > 0 {
@@ -203,7 +194,7 @@ func (a *Access) text() []byte {
 		if v := a.m[s]; v != nil {
 			s = fmt.Sprint(v)
 			if strings.ContainsAny(s, "\x00\t\n\v\f\r\\") {
-				for i, n := 0, len(s); i < n; i++ {
+				for i := 0; i < len(s); i++ {
 					switch s[i] {
 					case '\x00':
 						b.WriteString(`\0`)
@@ -232,7 +223,7 @@ func (a *Access) text() []byte {
 	return b.Bytes()
 }
 
-func (a *Access) csv() []string {
+func (a *Access) CSV() []string {
 	b := make([]string, len(a.o.Fields))
 	for i, s := range a.o.Fields {
 		if v := a.m[s]; v != nil {
@@ -242,7 +233,7 @@ func (a *Access) csv() []string {
 	return b
 }
 
-func (a *Access) json() []byte {
+func (a *Access) JSON() []byte {
 	p, err := json.Marshal(a.m)
 	log.ErrError(err)
 	return append(p, '\n')
