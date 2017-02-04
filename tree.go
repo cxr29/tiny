@@ -79,13 +79,22 @@ func (t *Tree) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t.putParams(params)
 }
 
-func (t *Tree) merge(r *Router) {
+func newTree(r *Router) *Tree {
+	if r.above != nil {
+		panic("subrouter not allowed")
+	}
+	t := &Tree{
+		methods:  make(map[string]*Node, 10),
+		handlers: copyHandlers(r.handlers),
+	}
 	var i int
 	handlers := make([]Handler, 0, 10)
 	tags := make([]Tag, 0, 10)
 Loop:
 	for {
-		handlers = append(handlers, r.handlers...)
+		if r.above != nil {
+			handlers = append(handlers, r.handlers...)
+		}
 		for ; i < len(r.routes); i++ {
 			rr := r.routes[i]
 			handlers = append(handlers, rr.handlers...)
@@ -133,15 +142,16 @@ Loop:
 			handlers = handlers[:len(handlers)-len(rr.handlers)]
 			tags = tags[:len(tags)-len(rr.tags)]
 		}
-		if r.above == nil {
-			break
-		} else {
+		if r.above != nil {
 			i = r.above.index
 			handlers = handlers[:len(handlers)-len(r.handlers)-len(r.above.handlers)]
 			tags = tags[:len(tags)-len(r.above.tags)]
 			r = r.above.above
+		} else {
+			break
 		}
 	}
+	return t
 }
 
 type Node struct {

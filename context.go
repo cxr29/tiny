@@ -29,15 +29,17 @@ func (ctx *Context) Routed() bool {
 }
 
 func (ctx *Context) call(i int) {
-	a := ctx.tree.handlers
-	if ctx.Routed() {
-		a = ctx.node.handlers
+	var h Handler
+	if j := i - len(ctx.tree.handlers); j < 0 {
+		h = ctx.tree.handlers[i]
+	} else if ctx.Routed() && j < len(ctx.node.handlers) {
+		h = ctx.node.handlers[j]
+	} else {
+		return
 	}
-	if i < len(a) {
-		a[i].ServeHTTP(ctx)
-		if ctx.index == i && !ctx.wroteHeader {
-			ctx.Next()
-		}
+	h.ServeHTTP(ctx)
+	if ctx.index == i && !ctx.wroteHeader {
+		ctx.Next()
 	}
 }
 

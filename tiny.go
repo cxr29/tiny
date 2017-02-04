@@ -57,12 +57,7 @@ func copyHandlers(handlers []Handler) (a []Handler) {
 }
 
 func (r *Router) Handler() http.Handler {
-	t := &Tree{
-		methods:  make(map[string]*Node, 9),
-		handlers: copyHandlers(r.handlers),
-	}
-	t.merge(r)
-	return t
+	return newTree(r)
 }
 
 func ListenAndServe(addr string, handler http.Handler) error {
