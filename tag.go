@@ -63,9 +63,9 @@ func (t Tag) String() (s string) {
 	case kPart:
 		s = t.Name
 	default:
-		s = t.Name + string(delimiter[2]) + string(t.Kind)
+		s = t.Name + string(meta[0]) + string(t.Kind)
 	}
-	return string(delimiter[0]) + s + string(delimiter[1])
+	return string(meta[1]) + s + string(meta[2])
 }
 
 func mustSplitPath(s string) (a []Tag) {
@@ -76,13 +76,13 @@ func mustSplitPath(s string) (a []Tag) {
 	return
 }
 
-const delimiter = "<>:^"
+const meta = ":<>^"
 
 func splitPath(s string) (a []Tag) {
 	if len(s) > 0 {
 		for {
-			i := strings.IndexByte(s, delimiter[0])
-			j := strings.IndexByte(s, delimiter[1])
+			i := strings.IndexByte(s, meta[1])
+			j := strings.IndexByte(s, meta[2])
 			if i == -1 && j == -1 {
 				a = append(a, Tag{Name: s})
 				return
@@ -106,12 +106,12 @@ func splitPath(s string) (a []Tag) {
 }
 
 func splitTag(s string) (t Tag) {
-	if strings.ContainsAny(s, delimiter[:2]) {
+	if strings.ContainsAny(s, meta[1:3]) {
 		return
 	}
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
-		case delimiter[2]:
+		case meta[0]:
 			switch s[i+1:] {
 			case "b", "bool", "boolean":
 				t.Kind = kBoolean
@@ -126,9 +126,11 @@ func splitTag(s string) (t Tag) {
 			}
 			t.Name = s[:i]
 			return
-		case delimiter[3]:
+		case meta[3]:
 			if r, err := regexp.Compile(s[i:]); err == nil {
-				return Tag{kRegexp, s[:i], r}
+				t.Kind = kRegexp
+				t.Name = s[:i]
+				t.Rule = r
 			}
 			return
 		}
