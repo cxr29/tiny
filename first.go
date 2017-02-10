@@ -89,6 +89,11 @@ func (ctx *Context) ParamInt(name string) (int, error) {
 	return strconv.Atoi(ctx.Param(name))
 }
 
+func (ctx *Context) ParamUint(name string) (uint, error) {
+	u, err := strconv.ParseUint(ctx.Param(name), 10, 0)
+	return uint(u), err
+}
+
 func (ctx *Context) ParamFloat64(name string) (float64, error) {
 	return strconv.ParseFloat(ctx.Param(name), 64)
 }
