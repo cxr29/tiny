@@ -18,8 +18,12 @@ import (
 )
 
 func (ctx *Context) WriteString(s string) (int, error) {
-	ctx.ContentTypePlain()
 	return ctx.Write([]byte(s))
+}
+
+func (ctx *Context) WritePlain(s string) (int, error) {
+	ctx.ContentTypePlain()
+	return ctx.WriteString(s)
 }
 
 func (ctx *Context) WriteJSON(v interface{}) (int, error) {
@@ -54,7 +58,7 @@ func (ctx *Context) writeError(s string) (int, error) {
 	if ctx.IsAJAX() {
 		return ctx.WriteJSON(map[string]string{"Error": s})
 	}
-	return ctx.WriteString("Error: " + s)
+	return ctx.WritePlain("Error: " + s)
 }
 
 func (ctx *Context) WriteError(e interface{}) (int, error) {
