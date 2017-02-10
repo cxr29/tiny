@@ -19,86 +19,97 @@ func (ctx *Context) First(k string) (s string, n int) {
 	return
 }
 
-func (ctx *Context) FirstBool(k string) (b bool, n int) {
-	k, n = ctx.First(k)
+func (ctx *Context) FirstBool(k string) (bool, int) {
+	k, n := ctx.First(k)
 	if n > 0 {
-		var err error
-		b, err = strconv.ParseBool(k)
-		if err != nil {
-			n = -n
+		b, err := strconv.ParseBool(k)
+		if err == nil {
+			return b, n
 		}
 	}
-	return
+	return false, -n
 }
 
-func (ctx *Context) FirstInt(k string) (i int, n int) {
-	k, n = ctx.First(k)
+func (ctx *Context) FirstInt(k string) (int, int) {
+	k, n := ctx.First(k)
 	if n > 0 {
-		var err error
-		i, err = strconv.Atoi(k)
-		if err != nil {
-			n = -n
+		i, err := strconv.Atoi(k)
+		if err == nil {
+			return i, n
 		}
 	}
-	return
+	return 0, -n
 }
 
-func (ctx *Context) FirstUint(k string) (u uint, n int) {
-	k, n = ctx.First(k)
+func (ctx *Context) FirstUint(k string) (uint, int) {
+	k, n := ctx.First(k)
 	if n > 0 {
-		x, err := strconv.ParseUint(k, 10, 0)
-		if err != nil {
-			n = -n
-		} else {
-			u = uint(x)
+		u, err := strconv.ParseUint(k, 10, 0)
+		if err == nil {
+			return uint(u), n
 		}
 	}
-	return
+	return 0, -n
 }
 
-func (ctx *Context) FirstFloat64(k string) (f float64, n int) {
-	k, n = ctx.First(k)
+func (ctx *Context) FirstFloat64(k string) (float64, int) {
+	k, n := ctx.First(k)
 	if n > 0 {
-		var err error
-		f, err = strconv.ParseFloat(k, 64)
-		if err != nil {
-			n = -n
+		f, err := strconv.ParseFloat(k, 64)
+		if err == nil {
+			return f, n
 		}
 	}
-	return
+	return 0, -n
 }
 
-func (ctx *Context) FirstFloat32(k string) (f float32, n int) {
-	k, n = ctx.First(k)
+func (ctx *Context) FirstFloat32(k string) (float32, int) {
+	k, n := ctx.First(k)
 	if n > 0 {
-		x, err := strconv.ParseFloat(k, 32)
-		if err != nil {
-			n = -n
-		} else {
-			f = float32(x)
+		f, err := strconv.ParseFloat(k, 32)
+		if err == nil {
+			return float32(f), n
 		}
 	}
-	return
+	return 0, -n
 }
 
-func (ctx *Context) ParamBool(name string) (bool, error) {
-	return strconv.ParseBool(ctx.Param(name))
+func (ctx *Context) ParamBool(name string) (bool, bool) {
+	b, err := strconv.ParseBool(ctx.Param(name))
+	if err != nil {
+		return false, false
+	}
+	return b, true
 }
 
-func (ctx *Context) ParamInt(name string) (int, error) {
-	return strconv.Atoi(ctx.Param(name))
+func (ctx *Context) ParamInt(name string) (int, bool) {
+	i, err := strconv.Atoi(ctx.Param(name))
+	if err != nil {
+		return 0, false
+	}
+	return i, true
 }
 
-func (ctx *Context) ParamUint(name string) (uint, error) {
+func (ctx *Context) ParamUint(name string) (uint, bool) {
 	u, err := strconv.ParseUint(ctx.Param(name), 10, 0)
-	return uint(u), err
+	if err != nil {
+		return 0, false
+	}
+	return uint(u), true
 }
 
-func (ctx *Context) ParamFloat64(name string) (float64, error) {
-	return strconv.ParseFloat(ctx.Param(name), 64)
+func (ctx *Context) ParamFloat64(name string) (float64, bool) {
+	f, err := strconv.ParseFloat(ctx.Param(name), 64)
+	if err != nil {
+		return 0, false
+	}
+	return f, true
 }
 
-func (ctx *Context) ParamFloat32(name string) (float32, error) {
+func (ctx *Context) ParamFloat32(name string) (float32, bool) {
 	f, err := strconv.ParseFloat(ctx.Param(name), 32)
-	return float32(f), err
+	if err != nil {
+		return 0, false
+	}
+	return float32(f), true
 }
