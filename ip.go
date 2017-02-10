@@ -31,14 +31,14 @@ func (ctx *Context) ParseRemoteIP(realIP, forwardedFor bool) net.IP {
 	return net.ParseIP(s)
 }
 
-var ipKey = NewValueKey()
+var keyIP = NewValueKey()
 
 func (ctx *Context) SetRemoteIP(ip net.IP) {
-	ctx.SetValue(ipKey, ip)
+	ctx.SetValue(keyIP, ip)
 }
 
 func (ctx *Context) RemoteIP() (ip net.IP) {
-	if v, ok := ctx.Values[ipKey]; ok {
+	if v, ok := ctx.Values[keyIP]; ok {
 		ip = v.(net.IP)
 	} else {
 		ip = ctx.ParseRemoteIP(false, false)
