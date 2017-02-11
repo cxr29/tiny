@@ -92,7 +92,7 @@ func newTree(r *Router) *Tree {
 	tags := make([]Tag, 0, 10)
 Loop:
 	for {
-		if r.above != nil {
+		if r.above != nil && i == 0 {
 			handlers = append(handlers, r.handlers...)
 		}
 		for ; i < len(r.routes); i++ {
