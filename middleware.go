@@ -102,7 +102,7 @@ func NewAllowedMethods(handle bool) Handler {
 				continue
 			}
 			n, ok := n.match(ctx.Request.URL.Path, params[:0])
-			if ok && n != nil && n.handlers != nil {
+			if ok && n != nil && len(n.handlers) > 0 {
 				methods = append(methods, method)
 			}
 		}

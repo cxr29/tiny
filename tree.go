@@ -12,44 +12,49 @@ import (
 
 type Tree struct {
 	handlers       []Handler
-	names          []string
-	methods, nodes map[string]*Node
+	methods, names map[string]*Node
+	node           *Node
 	pool           sync.Pool
 }
 
 func (t *Tree) naming(name string, n *Node) {
 	if len(name) > 0 {
-		if t.nodes == nil {
-			t.nodes = map[string]*Node{name: n}
-		} else if _, ok := t.nodes[name]; ok {
+		if t.names == nil {
+			t.names = make(map[string]*Node, 10)
+		} else if _, ok := t.names[name]; ok {
 			panic("duplicate route name: " + name)
-		} else {
-			t.nodes[name] = n
 		}
+		t.names[name] = n
 	}
 }
 
 func (t *Tree) getParams() []string {
 	if t.pool.New == nil {
 		t.pool.New = func() interface{} {
-			return make([]string, len(t.names))
+			var a []string
+			if t.node != nil && len(t.node.params) > 0 {
+				a = make([]string, 0, len(t.node.params))
+			}
+			return a
 		}
 	}
 	return t.pool.Get().([]string)
 }
 
 func (t *Tree) putParams(params []string) {
-	t.pool.Put(params[:len(t.names)])
+	if t.node == nil || cap(params) >= len(t.node.params) {
+		params = params[:0]
+		t.pool.Put(params)
+	}
 }
 
 func (t *Tree) match(method, path string) (n *Node, params []string) {
 	params = t.getParams()
 	f := func(s string) (ok bool) {
-		n, ok = t.methods[s]
-		if ok {
+		if n, ok = t.methods[s]; ok {
 			n, ok = n.match(path, params[:0])
-			if ok && n != nil && n.handlers != nil {
-				params = params[:len(n.names)]
+			if ok && n != nil && len(n.handlers) > 0 {
+				params = params[:len(n.params)]
 				return true
 			}
 		}
@@ -109,7 +114,7 @@ Loop:
 				n = new(Node)
 				t.methods[rr.method] = n
 			}
-			var names []string
+			var params []string
 			k := 0
 			for _, tag := range tags {
 				if tag.Kind > 0 {
@@ -117,28 +122,30 @@ Loop:
 				}
 			}
 			if k > 0 {
-				names = make([]string, k)
+				params = make([]string, k)
 				k = 0
 			}
 			for _, tag := range tags {
 				if tag.Kind > 0 {
 					n = n.mergeVariable(tag)
-					names[k] = tag.Name
+					params[k] = tag.Name
 					k++
 				} else {
 					n = n.mergeStatic(tag)
 				}
 			}
-			n.names = names
-			if n.handlers != nil {
+			n.params = params
+			if len(n.handlers) > 0 {
 				panic("duplicate route " + rr.method + " " + n.path())
 			} else {
 				n.handlers = copyHandlers(handlers)
 			}
-			t.naming(rr.Name, n)
-			if len(names) > len(t.names) {
-				t.names = names
+			if len(n.params) > 0 {
+				if t.node == nil || len(n.params) > len(t.node.params) {
+					t.node = n
+				}
 			}
+			t.naming(rr.Name, n)
 			handlers = handlers[:len(handlers)-len(rr.handlers)]
 			tags = tags[:len(tags)-len(rr.tags)]
 		}
@@ -157,11 +164,11 @@ Loop:
 type Node struct {
 	tag          Tag
 	above        *Node
-	index        int
 	static, back *Static
 	variables    []*Node
+	index        int
 	handlers     []Handler
-	names        []string
+	params       []string
 }
 
 type Static struct {
@@ -173,13 +180,20 @@ type Static struct {
 }
 
 func (x *Static) merge(s string) *Static {
-	for {
-		i := bytes.IndexByte(x.indexes, s[0])
-		if i == -1 {
-			break
+	if x.back != nil || len(s) == 0 {
+		panic(false)
+	}
+	for i, ok := 0, len(x.prefix) > 0; ; {
+		if ok {
+			ok = false
+		} else {
+			i = bytes.IndexByte(x.indexes, s[0])
+			if i == -1 {
+				break
+			}
+			x = x.constants[i]
+			i = 1
 		}
-		x = x.constants[i]
-		i = 1
 		for i < len(x.prefix) && i < len(s) {
 			if x.prefix[i] == s[i] {
 				i++
@@ -224,10 +238,13 @@ func (n *Node) mergeStatic(t Tag) *Node {
 	if len(t.Name) == 0 {
 		return n
 	}
+	var x *Static
 	if n.static == nil {
-		n.static = new(Static)
+		x = &Static{prefix: t.Name}
+		n.static = x
+	} else {
+		x = n.static.merge(t.Name)
 	}
-	x := n.static.merge(t.Name)
 	if x.below == nil {
 		x.below = &Node{tag: t, above: n, back: x}
 	}
@@ -273,7 +290,18 @@ Loop:
 			return n, true
 		}
 		if i == -1 {
-			x = n.static
+			if x = n.static; x != nil {
+				if i = len(x.prefix); i > 0 {
+					if len(s) >= i && s[:i] == x.prefix {
+						s = s[i:]
+						if len(s) == 0 {
+							return x.below, true
+						}
+					} else {
+						x = nil
+					}
+				}
+			}
 			for x != nil {
 				i = bytes.IndexByte(x.indexes, s[0])
 				if i >= 0 {

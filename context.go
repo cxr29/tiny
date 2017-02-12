@@ -85,8 +85,8 @@ func (ctx *Context) Status() int {
 }
 
 func (ctx *Context) Param(name string) string {
-	if ctx.node != nil {
-		for k, v := range ctx.node.names {
+	if ctx.Routed() {
+		for k, v := range ctx.node.params {
 			if v == name {
 				return ctx.Params[k]
 			}
