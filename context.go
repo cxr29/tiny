@@ -126,10 +126,9 @@ func (ctx *Context) SetValue(k, v interface{}) {
 	} else if !reflect.TypeOf(k).Comparable() {
 		panic("not comparable key")
 	} else if ctx.Values == nil {
-		ctx.Values = map[interface{}]interface{}{k: v}
+		ctx.Values = make(map[interface{}]interface{}, 10)
 	} else if _, ok := ctx.Values[k]; ok {
 		panic("key already exists")
-	} else {
-		ctx.Values[k] = v
 	}
+	ctx.Values[k] = v
 }
