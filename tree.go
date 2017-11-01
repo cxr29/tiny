@@ -115,28 +115,41 @@ Loop:
 				t.methods[rr.method] = n
 			}
 			var params []string
-			k := 0
-			for _, tag := range tags {
-				if tag.Kind > 0 {
-					k++
+			{
+				n := 0
+				for _, t := range tags {
+					if t.Kind > 0 {
+						n++
+					}
+				}
+				if n > 0 {
+					params = make([]string, 0, n)
 				}
 			}
-			if k > 0 {
-				params = make([]string, k)
-				k = 0
-			}
-			for _, tag := range tags {
-				if tag.Kind > 0 {
-					n = n.mergeVariable(tag)
-					params[k] = tag.Name
-					k++
+			for i := 0; i < len(tags); i++ {
+				if tags[i].Kind > 0 {
+					n = n.mergeVariable(tags[i])
+					params = append(params, tags[i].Name)
 				} else {
-					n = n.mergeStatic(tag)
+					s := tags[i].Name
+					for i++; i < len(tags); i++ {
+						if tags[i].Kind > 0 {
+							break
+						} else {
+							s += tags[i].Name
+						}
+					}
+					i--
+					n = n.mergeStatic(s)
 				}
 			}
 			n.params = params
 			if len(n.handlers) > 0 {
-				panic("duplicate route " + rr.method + " " + n.path())
+				var s string
+				for _, t := range tags {
+					s += t.String()
+				}
+				panic("duplicate route " + rr.method + " " + s)
 			} else {
 				n.handlers = copyHandlers(handlers)
 			}
@@ -209,23 +222,24 @@ func (x *Static) merge(s string) *Static {
 			}
 		} else {
 			y := &Static{
-				below:     x.below,
 				prefix:    x.prefix[i:],
 				constants: x.constants,
 				indexes:   x.indexes,
 				back:      x,
 			}
-			x.below = nil
+			if x.below != nil {
+				y.below = x.below
+				y.below.back = y
+				x.below = nil
+			}
 			x.prefix = x.prefix[:i]
 			x.constants = []*Static{y}
 			x.indexes = []byte{y.prefix[0]}
 			if i == len(s) {
 				return x
 			}
-			y = &Static{prefix: s[i:], back: x}
-			x.constants = append(x.constants, y)
-			x.indexes = append(x.indexes, y.prefix[0])
-			return y
+			s = s[i:]
+			break
 		}
 	}
 	y := &Static{prefix: s, back: x}
@@ -234,19 +248,19 @@ func (x *Static) merge(s string) *Static {
 	return y
 }
 
-func (n *Node) mergeStatic(t Tag) *Node {
-	if len(t.Name) == 0 {
+func (n *Node) mergeStatic(s string) *Node {
+	if len(s) == 0 {
 		return n
 	}
 	var x *Static
 	if n.static == nil {
-		x = &Static{prefix: t.Name}
+		x = &Static{prefix: s}
 		n.static = x
 	} else {
-		x = n.static.merge(t.Name)
+		x = n.static.merge(s)
 	}
 	if x.below == nil {
-		x.below = &Node{tag: t, above: n, back: x}
+		x.below = &Node{above: n, back: x}
 	}
 	return x.below
 }
@@ -271,14 +285,6 @@ func (n *Node) mergeVariable(t Tag) *Node {
 	v := &Node{tag: t, above: n, index: i + 1}
 	n.variables[i] = v
 	return v
-}
-
-func (n *Node) path() (s string) {
-	for n != nil {
-		s = n.tag.String() + s
-		n = n.above
-	}
-	return
 }
 
 func (n *Node) match(path string, params []string) (*Node, bool) {
